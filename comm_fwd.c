@@ -146,41 +146,42 @@ static void print_usage()
 
 static speed_t speed_by_value(int baudrate)
 {
-	switch (baudrate) {
-	case 9600:
+	switch (baudrate) 
+	{
+	    case 9600:
 		return B9600;
-	case 19200:
+	    case 19200:
 		return B19200;
-	case 38400:
+	    case 38400:
 		return B38400;
-	case 57600:
+	    case 57600:
 		return B57600;
-	case 115200:
+	    case 115200:
 		return B115200;
-	case 230400:
+	    case 230400:
 		return B230400;
-	case 460800:
+	    case 460800:
 		return B460800;
-	case 500000:
+	    case 500000:
 		return B500000;
-	case 921600:
+	    case 921600:
 		return B921600;
-	case 1500000:
+	    case 1500000:
 		return B1500000;
-	default:
+	    default:
 		printf("Not implemented baudrate %d\n", baudrate);
 		exit(EXIT_FAILURE);
 	}
 }
 
-static bool parse_host_port(const char *s, struct in_addr *out_addr,
-			    in_port_t *out_port)
+static bool parse_host_port(const char *s, struct in_addr *out_addr, in_port_t *out_port)
 {
 	char host_and_port[32] = { 0 };
 	strncpy(host_and_port, s, sizeof(host_and_port) - 1);
 
 	char *colon = strchr(host_and_port, ':');
-	if (NULL == colon) {
+	if (NULL == colon) 
+	{
 		return -1;
 	}
 
@@ -188,13 +189,15 @@ static bool parse_host_port(const char *s, struct in_addr *out_addr,
 	const char *host = host_and_port, *port_ptr = colon + 1;
 
 	const bool is_valid_addr = inet_aton(host, out_addr) != 0;
-	if (!is_valid_addr) {
+	if (!is_valid_addr) 
+	{
 		printf("Cannot parse host `%s'.\n", host);
 		return false;
 	}
 
 	int port;
-	if (sscanf(port_ptr, "%d", &port) != 1) {
+	if (sscanf(port_ptr, "%d", &port) != 1) 
+	{
 		printf("Cannot parse port `%s'.\n", port_ptr);
 		return false;
 	}
@@ -219,9 +222,7 @@ static void dump_mavlink_packet(unsigned char *data, const char *direction)
 	uint8_t comp_id = data[4];
 	uint8_t msg_id = data[5];
 
-	printf("%s sender %d/%d\t%d\t%d\n", direction, sys_id, comp_id, seq,
-	       msg_id);
-	
+	printf("%s sender %d/%d\t%d\t%d\n", direction, sys_id, comp_id, seq, msg_id);
 }
 
 /* https://discuss.ardupilot.org/uploads/short-url/vS0JJd3BQfN9uF4DkY7bAeb6Svd.pdf
@@ -232,10 +233,11 @@ static void dump_mavlink_packet(unsigned char *data, const char *direction)
  * 4. Component ID- what component of the system is sending the message
  * 5. Message ID (e.g. 0 = heartbeat and many more! Don’t be shy, you can add too..)
  */
-static bool get_mavlink_packet(unsigned char *in_buffer, int buf_len,
+static bool get_mavlink_packet(unsigned char *in_buffer, buf_len int,
 			       int *packet_len)
 {
-	if (buf_len < 6 /* header */) {
+	if (buf_len < 6 /* header */) 
+	{
 		return false;
 	}
 	assert(in_buffer[0] == 0xFE);
@@ -243,18 +245,20 @@ static bool get_mavlink_packet(unsigned char *in_buffer, int buf_len,
 	uint8_t msg_len = in_buffer[1];
 	*packet_len = 6 /* header */ + msg_len + 2 /* crc */;
 	if (buf_len < *packet_len)
-		return false;
-
+	{	
+	    return false;
+	}
 	dump_mavlink_packet(in_buffer, ">>");
-
 	return true;
 }
 
 // Returns num bytes before first occurrence of 0xFE or full data length
 static size_t until_first_fe(unsigned char *data, size_t len)
 {
-	for (size_t i = 1; i < len; i++) {
-		if (data[i] == 0xFE) {
+	for (size_t i = 1; i < len; i++) 
+	{
+		if (data[i] == 0xFE) 
+		{
 			return i;
 		}
 	}
@@ -284,12 +288,13 @@ static void serial_read_cb(struct bufferevent *bev, void *arg)
 		    continue;
 		}
 
+                // Check is packet good:
 		if (!get_mavlink_packet(data, in_len, &packet_len))
 		{
 		    return;
 		}
 		// TODO: check CRC correctness and skip bad packets
-
+                  
 		if(sendto(out_sock,data,packet_len,0,(struct sockaddr *)&sin_out,sizeof(sin_out)) == -1) 
 		{
 			perror("sendto()");
@@ -311,6 +316,8 @@ static void serial_event_cb(struct bufferevent *bev, short events, void *arg)
 	}
 }
 
+
+//Event read from socket (read from GS):
 static void in_read(evutil_socket_t sock, short event, void *arg)
 {
 	(void)event;
@@ -319,13 +326,15 @@ static void in_read(evutil_socket_t sock, short event, void *arg)
 	ssize_t nread;
 
 	nread = recvfrom(sock, &buf, sizeof(buf) - 1, 0, NULL, NULL);
-	if (nread == -1) {
+	if (nread == -1) 
+	{
 		perror("recvfrom()");
 		event_base_loopbreak(base);
 	}
 
 	assert(nread > 6);
 
+        // Just dump
 	dump_mavlink_packet(buf, "<<");
 
 	bufferevent_write(serial_bev, buf, nread);
