@@ -40,74 +40,26 @@ int out_2_sock;
 
 
 #if 0
+PACKET_HEADER   	0x73
 
-#define PACKET_HEADER             	0x73
+Drone packet structure:
+HEADER 0x73
+LENGHT sizeof(data_load)
+DATALOAD:
+..
+..
+..
+CRC 1 bites:
+summa of all bites of data_load 
+Packet example:
+0x73 0x06 0x01 0x02 0x03 0x04 0x05 0x06 0x15
+0x73 - header
+0x06 - lenght of data load
+0x01 0x02 0x03 0x04 0x05 0x06 - data load
+0x15  LSB of 16 bits CRC
+#endif
 
-// ROV_BOARD_STATE_RESPONCE   	0x21
-uint32_t board_packet_rov_board_state_responce(uint8_t * u8_input_buf)
-{
-	BoardRovState *pBoardState;
-	uint32_t u32_packet_size = 0;
-	uint16_t u16_CRC_calculated = 0;
-
-    // Get pointer to current board state:
-	board_data_get_rov_state(&pBoardState);
-
-	u8_input_buf[0] = PACKET_HEADER;
-	u8_input_buf[1] = 0x24;						// Length of data 0x24=36
-	u8_input_buf[2] = ROV_BOARD_STATE_RESPONCE; // Command
-	u8_input_buf[3] = (pBoardState->u16_boardBatteryVoltage >> 0) & 0xFF;
-	u8_input_buf[4] = (pBoardState->u16_boardBatteryVoltage >> 8) & 0xFF;
-
-	u8_input_buf[5] = (pBoardState->u16_boardConsumptionCurrent >> 0) & 0xFF;
-	u8_input_buf[6] = (pBoardState->u16_boardConsumptionCurrent >> 8) & 0xFF;
-
-	u8_input_buf[7]  = (((uint16_t)pBoardState->i3d_rawGyro.i16_X) >> 0) & 0xFF;
-	u8_input_buf[8]  = (((uint16_t)pBoardState->i3d_rawGyro.i16_X) >> 8) & 0xFF;
-	u8_input_buf[9]  = (((uint16_t)pBoardState->i3d_rawGyro.i16_Y) >> 0) & 0xFF;
-	u8_input_buf[10] = (((uint16_t)pBoardState->i3d_rawGyro.i16_Y) >> 8) & 0xFF;
-	u8_input_buf[11] = (((uint16_t)pBoardState->i3d_rawGyro.i16_Z) >> 0) & 0xFF;
-	u8_input_buf[12] = (((uint16_t)pBoardState->i3d_rawGyro.i16_Z) >> 8) & 0xFF;
-
-	u8_input_buf[13] = (((uint16_t)pBoardState->i3d_rawAccelerometer.i16_X) >> 0) & 0xFF;
-	u8_input_buf[14] = (((uint16_t)pBoardState->i3d_rawAccelerometer.i16_X) >> 8) & 0xFF;
-	u8_input_buf[15] = (((uint16_t)pBoardState->i3d_rawAccelerometer.i16_Y) >> 0) & 0xFF;
-	u8_input_buf[16] = (((uint16_t)pBoardState->i3d_rawAccelerometer.i16_Y) >> 8) & 0xFF;
-	u8_input_buf[17] = (((uint16_t)pBoardState->i3d_rawAccelerometer.i16_Z) >> 0) & 0xFF;
-	u8_input_buf[18] = (((uint16_t)pBoardState->i3d_rawAccelerometer.i16_Z) >> 8) & 0xFF;
-
-	u8_input_buf[19] = (((uint16_t)pBoardState->i3d_rawMagnitometer.i16_X) >> 0) & 0xFF;
-	u8_input_buf[20] = (((uint16_t)pBoardState->i3d_rawMagnitometer.i16_X) >> 8) & 0xFF;
-	u8_input_buf[21] = (((uint16_t)pBoardState->i3d_rawMagnitometer.i16_Y) >> 0) & 0xFF;
-	u8_input_buf[22] = (((uint16_t)pBoardState->i3d_rawMagnitometer.i16_Y) >> 8) & 0xFF;
-	u8_input_buf[23] = (((uint16_t)pBoardState->i3d_rawMagnitometer.i16_Z) >> 0) & 0xFF;
-	u8_input_buf[24] = (((uint16_t)pBoardState->i3d_rawMagnitometer.i16_Z) >> 8) & 0xFF;
-
-	u8_input_buf[25] = (pBoardState->u32_boardInternalBaro >> 0)  & 0xFF;
-	u8_input_buf[26] = (pBoardState->u32_boardInternalBaro >> 8)  & 0xFF;
-	u8_input_buf[27] = (pBoardState->u32_boardInternalBaro >> 16) & 0xFF;
-	u8_input_buf[28] = (pBoardState->u32_boardInternalBaro >> 24) & 0xFF;
-
-	u8_input_buf[29] = (pBoardState->u16_boardInternalTemperature >> 0) & 0xFF;
-	u8_input_buf[30] = (pBoardState->u16_boardInternalTemperature >> 8) & 0xFF;
-
-	u8_input_buf[31] = (pBoardState->u32_boardExternalBaro >> 0)  & 0xFF;
-	u8_input_buf[32] = (pBoardState->u32_boardExternalBaro >> 8)  & 0xFF;
-	u8_input_buf[33] = (pBoardState->u32_boardExternalBaro >> 16) & 0xFF;
-	u8_input_buf[34] = (pBoardState->u32_boardExternalBaro >> 24) & 0xFF;
-
-	u8_input_buf[35] = (pBoardState->u16_boardExternalTemperature >> 0) & 0xFF;
-	u8_input_buf[36] = (pBoardState->u16_boardExternalTemperature >> 8) & 0xFF;
-
-	u8_input_buf[37] = pBoardState->u8_boardLightLedOnOff;
-
-	board_packet_crc_calculation(u8_input_buf, &u16_CRC_calculated);
-	u8_input_buf[38] = u16_CRC_calculated & 0xFF;
-	u32_packet_size = u8_input_buf[1]+3;
-	return(u32_packet_size);
-}
-
-void board_packet_crc_calculation(uint8_t * pu8_data, uint16_t *pu16_crc)
+static void drone_telemetry_packet_crc_calculation(uint8_t * pu8_data, uint16_t *pu16_crc)
 {
 	uint16_t u16_crc = 0;
 	uint16_t u16_counter = 0;
@@ -118,15 +70,48 @@ void board_packet_crc_calculation(uint8_t * pu8_data, uint16_t *pu16_crc)
 		u16_crc = u16_crc + pu8_data[u16_counter + 2];
 		u16_counter++;
 	}
-
 	*pu16_crc = u16_crc;
 }
-#endif
 
+static bool drone_telemetry_packet_check(uint8_t * pu8_data, uint8_t u8_packet_crc)
+{
+	uint16_t u16_calculated_crc = 0;
+	
+        drone_telemetry_packet_crc_calculation(pu8_data, &u16_calculated_crc);
 
+	if( (uint8_t)(u16_calculated_crc & 0xFF) == u8_packet_crc)	
+	{
+	    return true;	
+	}
+	return false;
+}
 
+static bool get_drone_telemetry(unsigned char *in_buffer, int buf_len, int *packet_len)
+{
+	if (buf_len < 2 /* header */) 
+	{
+		return false;
+	}
+	assert(in_buffer[0] == 0x73);
 
+	uint8_t msg_len = in_buffer[1];
+	*packet_len = 2 /* header */ + msg_len + 1 /* crc */;
+	if (buf_len < *packet_len)
+	{	
+	    return false;
+	}
 
+        uint8_t u8_packet_crc = in_buffer[2+ msg_len];
+	uint16_t u16_calculated_crc = 0;
+
+        drone_telemetry_packet_crc_calculation(in_buffer, &u16_calculated_crc);
+        
+	if( (uint8_t)(u16_calculated_crc & 0xFF) == u8_packet_crc)	
+	{
+	    return true;	
+	}
+	return false;
+}
 
 
 
@@ -233,8 +218,7 @@ static void dump_mavlink_packet(unsigned char *data, const char *direction)
  * 4. Component ID- what component of the system is sending the message
  * 5. Message ID (e.g. 0 = heartbeat and many more! Don’t be shy, you can add too..)
  */
-static bool get_mavlink_packet(unsigned char *in_buffer, buf_len int,
-			       int *packet_len)
+static bool get_mavlink_packet(unsigned char *in_buffer, int buf_len, int *packet_len)
 {
 	if (buf_len < 6 /* header */) 
 	{
@@ -252,68 +236,88 @@ static bool get_mavlink_packet(unsigned char *in_buffer, buf_len int,
 	return true;
 }
 
-// Returns num bytes before first occurrence of 0xFE or full data length
+// Returns num bytes before first occurrence of 0xFE or 0x73 or full data length
 static size_t until_first_fe(unsigned char *data, size_t len)
 {
 	for (size_t i = 1; i < len; i++) 
 	{
-		if (data[i] == 0xFE) 
-		{
-			return i;
-		}
+            if ((data[i] == 0xFE) || (data[i] == 0x73)) 
+	    {
+	        return i;
+	    }
 	}
 	return len;
 }
 
 static void serial_read_cb(struct bufferevent *bev, void *arg)
 {
-	struct evbuffer *input = bufferevent_get_input(bev);
-	int packet_len, in_len;
-	struct event_base *base = arg;
+    // Returns the input buffer:	
+    struct evbuffer *input = bufferevent_get_input(bev);
+	
+    int packet_len, in_len;
+    struct event_base *base = arg;
 
-	while ((in_len = evbuffer_get_length(input))) 
-	{
-		unsigned char *data = evbuffer_pullup(input, in_len);
-		if (data == NULL) 
-		{
-			return;
-		}
+    // Returns the total number of bytes stored in the evbuffer: 
+    while ((in_len = evbuffer_get_length(input))) 
+    {
+        // A pointer to the contiguous memory array: 
+        unsigned char *data = evbuffer_pullup(input, in_len);
+        if (data == NULL) 
+        {
+            return;
+        }
 
-		// find first 0xFE and skip everything before it
-		if (*data != 0xFE) 
-		{
-		    int bad_len = until_first_fe(data, in_len);
-  		    printf(">> Skipping %d bytes of unknown data\n", bad_len);
-		    evbuffer_drain(input, bad_len);
-		    continue;
-		}
+        // Find first 0xFE and skip everything before it
+        if ( (*data != 0xFE) || (*data != 0x73))
+        {
+            int bad_len = until_first_fe(data, in_len);
+            printf(">> Skipping %d bytes of unknown data\n", bad_len);
+  		    
+            // Remove a specified number of bytes data from the beginning of an evbuffer:
+            evbuffer_drain(input, bad_len);
+            continue;
+        }
 
-                // Check is packet good:
-		if (!get_mavlink_packet(data, in_len, &packet_len))
-		{
-		    return;
-		}
-		// TODO: check CRC correctness and skip bad packets
-                  
-		if(sendto(out_sock,data,packet_len,0,(struct sockaddr *)&sin_out,sizeof(sin_out)) == -1) 
-		{
-			perror("sendto()");
-			event_base_loopbreak(base);
-		}
-
-		evbuffer_drain(input, packet_len);
+	if (*data != 0xFE)
+        {
+            // Check is packet good:
+            if (!get_mavlink_packet(data, in_len, &packet_len))
+            {
+                return;
+            }
+            // TODO: check CRC correctness and skip bad packets
 	}
+	
+	if (*data != 0x73)
+        {
+            // Check is packet good:
+            if (!get_drone_telemetry(data, in_len, &packet_len))
+            {
+                return;
+            }
+	}
+
+        if(sendto(out_sock,data,packet_len,0,(struct sockaddr *)&sin_out,sizeof(sin_out)) == -1) 
+        {
+            perror("sendto()");
+            event_base_loopbreak(base);
+        }
+
+        // Remove a specified number of bytes data from the beginning of an evbuffer:
+        evbuffer_drain(input, packet_len);
+    }
 }
 
 static void serial_event_cb(struct bufferevent *bev, short events, void *arg)
 {
-	(void)bev;
-	struct event_base *base = arg;
+    (void)bev;
+    struct event_base *base = arg;
 
-	if (events & (BEV_EVENT_EOF | BEV_EVENT_ERROR | BEV_EVENT_TIMEOUT)) {
-		printf("Serial connection closed\n");
-		event_base_loopbreak(base);
-	}
+    if (events & (BEV_EVENT_EOF | BEV_EVENT_ERROR | BEV_EVENT_TIMEOUT)) 
+    {
+        printf("Serial connection closed\n");
+        event_base_loopbreak(base);
+    }
 }
 
 
