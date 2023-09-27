@@ -37,6 +37,100 @@ struct sockaddr_in sin_2_out = {
 int out_sock;
 int out_2_sock;
 
+
+
+#if 0
+
+#define PACKET_HEADER             	0x73
+
+// ROV_BOARD_STATE_RESPONCE   	0x21
+uint32_t board_packet_rov_board_state_responce(uint8_t * u8_input_buf)
+{
+	BoardRovState *pBoardState;
+	uint32_t u32_packet_size = 0;
+	uint16_t u16_CRC_calculated = 0;
+
+    // Get pointer to current board state:
+	board_data_get_rov_state(&pBoardState);
+
+	u8_input_buf[0] = PACKET_HEADER;
+	u8_input_buf[1] = 0x24;						// Length of data 0x24=36
+	u8_input_buf[2] = ROV_BOARD_STATE_RESPONCE; // Command
+	u8_input_buf[3] = (pBoardState->u16_boardBatteryVoltage >> 0) & 0xFF;
+	u8_input_buf[4] = (pBoardState->u16_boardBatteryVoltage >> 8) & 0xFF;
+
+	u8_input_buf[5] = (pBoardState->u16_boardConsumptionCurrent >> 0) & 0xFF;
+	u8_input_buf[6] = (pBoardState->u16_boardConsumptionCurrent >> 8) & 0xFF;
+
+	u8_input_buf[7]  = (((uint16_t)pBoardState->i3d_rawGyro.i16_X) >> 0) & 0xFF;
+	u8_input_buf[8]  = (((uint16_t)pBoardState->i3d_rawGyro.i16_X) >> 8) & 0xFF;
+	u8_input_buf[9]  = (((uint16_t)pBoardState->i3d_rawGyro.i16_Y) >> 0) & 0xFF;
+	u8_input_buf[10] = (((uint16_t)pBoardState->i3d_rawGyro.i16_Y) >> 8) & 0xFF;
+	u8_input_buf[11] = (((uint16_t)pBoardState->i3d_rawGyro.i16_Z) >> 0) & 0xFF;
+	u8_input_buf[12] = (((uint16_t)pBoardState->i3d_rawGyro.i16_Z) >> 8) & 0xFF;
+
+	u8_input_buf[13] = (((uint16_t)pBoardState->i3d_rawAccelerometer.i16_X) >> 0) & 0xFF;
+	u8_input_buf[14] = (((uint16_t)pBoardState->i3d_rawAccelerometer.i16_X) >> 8) & 0xFF;
+	u8_input_buf[15] = (((uint16_t)pBoardState->i3d_rawAccelerometer.i16_Y) >> 0) & 0xFF;
+	u8_input_buf[16] = (((uint16_t)pBoardState->i3d_rawAccelerometer.i16_Y) >> 8) & 0xFF;
+	u8_input_buf[17] = (((uint16_t)pBoardState->i3d_rawAccelerometer.i16_Z) >> 0) & 0xFF;
+	u8_input_buf[18] = (((uint16_t)pBoardState->i3d_rawAccelerometer.i16_Z) >> 8) & 0xFF;
+
+	u8_input_buf[19] = (((uint16_t)pBoardState->i3d_rawMagnitometer.i16_X) >> 0) & 0xFF;
+	u8_input_buf[20] = (((uint16_t)pBoardState->i3d_rawMagnitometer.i16_X) >> 8) & 0xFF;
+	u8_input_buf[21] = (((uint16_t)pBoardState->i3d_rawMagnitometer.i16_Y) >> 0) & 0xFF;
+	u8_input_buf[22] = (((uint16_t)pBoardState->i3d_rawMagnitometer.i16_Y) >> 8) & 0xFF;
+	u8_input_buf[23] = (((uint16_t)pBoardState->i3d_rawMagnitometer.i16_Z) >> 0) & 0xFF;
+	u8_input_buf[24] = (((uint16_t)pBoardState->i3d_rawMagnitometer.i16_Z) >> 8) & 0xFF;
+
+	u8_input_buf[25] = (pBoardState->u32_boardInternalBaro >> 0)  & 0xFF;
+	u8_input_buf[26] = (pBoardState->u32_boardInternalBaro >> 8)  & 0xFF;
+	u8_input_buf[27] = (pBoardState->u32_boardInternalBaro >> 16) & 0xFF;
+	u8_input_buf[28] = (pBoardState->u32_boardInternalBaro >> 24) & 0xFF;
+
+	u8_input_buf[29] = (pBoardState->u16_boardInternalTemperature >> 0) & 0xFF;
+	u8_input_buf[30] = (pBoardState->u16_boardInternalTemperature >> 8) & 0xFF;
+
+	u8_input_buf[31] = (pBoardState->u32_boardExternalBaro >> 0)  & 0xFF;
+	u8_input_buf[32] = (pBoardState->u32_boardExternalBaro >> 8)  & 0xFF;
+	u8_input_buf[33] = (pBoardState->u32_boardExternalBaro >> 16) & 0xFF;
+	u8_input_buf[34] = (pBoardState->u32_boardExternalBaro >> 24) & 0xFF;
+
+	u8_input_buf[35] = (pBoardState->u16_boardExternalTemperature >> 0) & 0xFF;
+	u8_input_buf[36] = (pBoardState->u16_boardExternalTemperature >> 8) & 0xFF;
+
+	u8_input_buf[37] = pBoardState->u8_boardLightLedOnOff;
+
+	board_packet_crc_calculation(u8_input_buf, &u16_CRC_calculated);
+	u8_input_buf[38] = u16_CRC_calculated & 0xFF;
+	u32_packet_size = u8_input_buf[1]+3;
+	return(u32_packet_size);
+}
+
+void board_packet_crc_calculation(uint8_t * pu8_data, uint16_t *pu16_crc)
+{
+	uint16_t u16_crc = 0;
+	uint16_t u16_counter = 0;
+	uint16_t u16_size = pu8_data[1];
+
+	while(u16_counter < u16_size)
+	{
+		u16_crc = u16_crc + pu8_data[u16_counter + 2];
+		u16_counter++;
+	}
+
+	*pu16_crc = u16_crc;
+}
+#endif
+
+
+
+
+
+
+
+
+
 static void print_usage()
 {
 	printf("Usage: mavfwd [OPTIONS]\n"
