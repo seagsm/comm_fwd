@@ -39,7 +39,7 @@ int out_2_sock;
 
 
 
-#if 0
+/*
 PACKET_HEADER   	0x73
 
 Drone packet structure:
@@ -57,8 +57,9 @@ Packet example:
 0x06 - lenght of data load
 0x01 0x02 0x03 0x04 0x05 0x06 - data load
 0x15  LSB of 16 bits CRC
-#endif
+*/
 
+// Return calculated CRC:
 static void drone_telemetry_packet_crc_calculation(uint8_t * pu8_data, uint16_t *pu16_crc)
 {
 	uint16_t u16_crc = 0;
@@ -73,48 +74,34 @@ static void drone_telemetry_packet_crc_calculation(uint8_t * pu8_data, uint16_t 
 	*pu16_crc = u16_crc;
 }
 
-static bool drone_telemetry_packet_check(uint8_t * pu8_data, uint8_t u8_packet_crc)
-{
-	uint16_t u16_calculated_crc = 0;
-	
-        drone_telemetry_packet_crc_calculation(pu8_data, &u16_calculated_crc);
-
-	if( (uint8_t)(u16_calculated_crc & 0xFF) == u8_packet_crc)	
-	{
-	    return true;	
-	}
-	return false;
-}
-
+// Check drone telemetry packet:
 static bool get_drone_telemetry(unsigned char *in_buffer, int buf_len, int *packet_len)
 {
-	if (buf_len < 2 /* header */) 
-	{
-		return false;
-	}
-	assert(in_buffer[0] == 0x73);
+    if (buf_len < 2 /* header */) 
+    {
+        return false;
+    }
+    
+    assert(in_buffer[0] == 0x73);
 
-	uint8_t msg_len = in_buffer[1];
-	*packet_len = 2 /* header */ + msg_len + 1 /* crc */;
-	if (buf_len < *packet_len)
-	{	
-	    return false;
-	}
+    uint8_t msg_len = in_buffer[1];
+    *packet_len = 2 /* header */ + msg_len + 1 /* crc */;
+    if (buf_len < *packet_len)
+    {	
+        return false;
+    }
 
-        uint8_t u8_packet_crc = in_buffer[2+ msg_len];
-	uint16_t u16_calculated_crc = 0;
+    uint8_t u8_packet_crc = in_buffer[2+ msg_len];
+    uint16_t u16_calculated_crc = 0;
 
-        drone_telemetry_packet_crc_calculation(in_buffer, &u16_calculated_crc);
+    drone_telemetry_packet_crc_calculation(in_buffer, &u16_calculated_crc);
         
-	if( (uint8_t)(u16_calculated_crc & 0xFF) == u8_packet_crc)	
-	{
-	    return true;	
-	}
-	return false;
+    if((uint8_t)(u16_calculated_crc & 0xFF) == u8_packet_crc)	
+    {
+        return true;	
+    }
+    return false;
 }
-
-
-
 
 static void print_usage()
 {
@@ -268,7 +255,7 @@ static void serial_read_cb(struct bufferevent *bev, void *arg)
         }
 
         // Find first 0xFE and skip everything before it
-        if ( (*data != 0xFE) || (*data != 0x73))
+        if ( (*data != 0xFE) && (*data != 0x73))
         {
             int bad_len = until_first_fe(data, in_len);
             printf(">> Skipping %d bytes of unknown data\n", bad_len);
@@ -297,12 +284,25 @@ static void serial_read_cb(struct bufferevent *bev, void *arg)
             }
 	}
 
-        if(sendto(out_sock,data,packet_len,0,(struct sockaddr *)&sin_out,sizeof(sin_out)) == -1) 
+        if (*data != 0xFE)
         {
-            perror("sendto()");
-            event_base_loopbreak(base);
+            if(sendto(out_sock,data,packet_len,0,(struct sockaddr *)&sin_out,sizeof(sin_out)) == -1) 
+            {
+                perror("sendto()");
+                event_base_loopbreak(base);
+            }
         }
 
+
+        if (*data != 0x73)
+        {
+            if(sendto(out_2_sock,data,packet_len,0,(struct sockaddr *)&sin_2_out,sizeof(sin_2_out)) == -1) 
+            {
+                perror("sendto()");
+                event_base_loopbreak(base);
+            }
+        }
+	
         // Remove a specified number of bytes data from the beginning of an evbuffer:
         evbuffer_drain(input, packet_len);
     }
@@ -319,7 +319,6 @@ static void serial_event_cb(struct bufferevent *bev, short events, void *arg)
         event_base_loopbreak(base);
     }
 }
-
 
 //Event read from socket (read from GS):
 static void in_read(evutil_socket_t sock, short event, void *arg)
@@ -402,7 +401,8 @@ static int handle_data(
 			     &sin_2_out.sin_port))
 		goto err;
 
-	if (bind(in_sock, (struct sockaddr *)&sin_in, sizeof(sin_in))) {
+	if (bind(in_sock, (struct sockaddr *)&sin_in, sizeof(sin_in))) 
+	{
 		perror("bind()");
 		exit(EXIT_FAILURE);
 	}
@@ -427,21 +427,29 @@ static int handle_data(
 
 err:
 	if (serial_fd >= 0)
+	{
 		close(serial_fd);
-
+        }
 	if (serial_bev)
+	{
 		bufferevent_free(serial_bev);
+	}
 
-	if (in_ev) {
+	if (in_ev) 
+	{
 		event_del(in_ev);
 		event_free(in_ev);
 	}
 
 	if (sig_int)
+	{
 		event_free(sig_int);
+	}
 
 	if (base)
+	{
 		event_base_free(base);
+	}
 
 	libevent_global_shutdown();
 
@@ -450,50 +458,49 @@ err:
 
 int main(int argc, char **argv)
 {
-	const struct option long_options[] = {
-		{ "master", required_argument, NULL, 'm' },
-		{ "baudrate", required_argument, NULL, 'b' },
-		{ "out", required_argument, NULL, 'o' },
-		{ "out2", required_argument, NULL, 'u' },
-		{ "in", required_argument, NULL, 'i' },
-		{ "help", no_argument, NULL, 'h' },
-		{ NULL, 0, NULL, 0 }
-	};
+    const struct option long_options[] = {
+        { "master", required_argument, NULL, 'm' },
+        { "baudrate", required_argument, NULL, 'b' },
+        { "out", required_argument, NULL, 'o' },
+        { "out2", required_argument, NULL, 'u' },
+        { "in", required_argument, NULL, 'i' },
+        { "help", no_argument, NULL, 'h' },
+        { NULL, 0, NULL, 0 }
+    };
 
-	const char *port_name = default_master;
-	int baudrate = default_baudrate;
-	const char *out_addr = default_out_addr;
-	const char *out_2_addr = default_2_out_addr;
-	
-	const char *in_addr = default_in_addr;
+    const char *port_name = default_master;
+    int baudrate = default_baudrate;
+    const char *out_addr = default_out_addr;
+    const char *out_2_addr = default_2_out_addr;
 
-	int opt;
-	int long_index = 0;
-	while ((opt = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1) 
-	{
-		switch (opt) 
-		{
-		    case 'm':
-			port_name = optarg;
-			break;
-		    case 'b':
-			baudrate = atoi(optarg);
-			break;
-		    case 'o':
-			out_addr = optarg;
-			break;
-		    case 'u':
-			out_2_addr = optarg;
-			break;
-				
-		    case 'i':
-			in_addr = optarg;
-			break;
-		    case 'h':
-		    default:
-			print_usage();
-			return EXIT_SUCCESS;
-		}
-	}
-	return handle_data(port_name, baudrate, out_addr,out_2_addr, in_addr);
+    const char *in_addr = default_in_addr;
+
+    int opt;
+    int long_index = 0;
+    while ((opt = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1) 
+    {
+        switch (opt) 
+        {
+            case 'm':
+                port_name = optarg;
+                break;
+            case 'b':
+                baudrate = atoi(optarg);
+                break;
+            case 'o':
+                out_addr = optarg;
+                break;
+            case 'u':
+                out_2_addr = optarg;
+                break;
+            case 'i':
+                in_addr = optarg;
+                break;
+            case 'h':
+            default:
+                print_usage();
+                return EXIT_SUCCESS;
+        }
+    }
+    return handle_data(port_name, baudrate, out_addr,out_2_addr, in_addr);
 }
