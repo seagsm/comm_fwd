@@ -194,7 +194,7 @@ static void dump_mavlink_packet(unsigned char *data, const char *direction)
 	uint8_t comp_id = data[4];
 	uint8_t msg_id = data[5];
 
-	printf("%s sender %d/%d\t%d\t%d\n", direction, sys_id, comp_id, seq, msg_id);
+	//printf("%s sender %d/%d\t%d\t%d\n", direction, sys_id, comp_id, seq, msg_id);
 }
 
 /* https://discuss.ardupilot.org/uploads/short-url/vS0JJd3BQfN9uF4DkY7bAeb6Svd.pdf
@@ -265,7 +265,7 @@ static void serial_read_cb(struct bufferevent *bev, void *arg)
             continue;
         }
 
-	if (*data != 0xFE)
+	if (*data == 0xFE)
         {
             // Check is packet good:
             if (!get_mavlink_packet(data, in_len, &packet_len))
@@ -275,7 +275,7 @@ static void serial_read_cb(struct bufferevent *bev, void *arg)
             // TODO: check CRC correctness and skip bad packets
 	}
 	
-	if (*data != 0x73)
+	if (*data == 0x73)
         {
             // Check is packet good:
             if (!get_drone_telemetry(data, in_len, &packet_len))
@@ -284,22 +284,26 @@ static void serial_read_cb(struct bufferevent *bev, void *arg)
             }
 	}
 
-        if (*data != 0xFE)
+        if (*data == 0xFE)
         {
             if(sendto(out_sock,data,packet_len,0,(struct sockaddr *)&sin_out,sizeof(sin_out)) == -1) 
             {
-                perror("sendto()");
+                perror("sendto() 0xFE");
                 event_base_loopbreak(base);
             }
         }
 
 
-        if (*data != 0x73)
+        if (*data == 0x73)
         {
             if(sendto(out_2_sock,data,packet_len,0,(struct sockaddr *)&sin_2_out,sizeof(sin_2_out)) == -1) 
             {
-                perror("sendto()");
+                perror("sendto() error 0x73");
                 event_base_loopbreak(base);
+            }
+            else
+            {
+//                fprintf(stderr,"OK 0x73");
             }
         }
 	
@@ -328,6 +332,8 @@ static void in_read(evutil_socket_t sock, short event, void *arg)
 	struct event_base *base = arg;
 	ssize_t nread;
 
+//        fprintf(stderr,"OK in read 1 0x73");
+
 	nread = recvfrom(sock, &buf, sizeof(buf) - 1, 0, NULL, NULL);
 	if (nread == -1) 
 	{
@@ -338,7 +344,9 @@ static void in_read(evutil_socket_t sock, short event, void *arg)
 	assert(nread > 6);
 
         // Just dump
-	dump_mavlink_packet(buf, "<<");
+	//dump_mavlink_packet(buf, "<<");
+
+//        fprintf(stderr,"OK in read 1 0x73  sss_%d", nread);
 
 	bufferevent_write(serial_bev, buf, nread);
 }
@@ -384,7 +392,10 @@ static int handle_data(
 	cfmakeraw(&options);
 	tcsetattr(serial_fd, TCSANOW, &options);
 
+        // Open socket for mavlink
 	out_sock = socket(AF_INET, SOCK_DGRAM, 0);
+	// Open socket for drone 0x73
+	out_2_sock = socket(AF_INET, SOCK_DGRAM, 0);
 	int in_sock = socket(AF_INET, SOCK_DGRAM, 0);
 	struct sockaddr_in sin_in = {
 		.sin_family = AF_INET,
@@ -412,6 +423,7 @@ static int handle_data(
 
 	sig_int = evsignal_new(base, SIGINT, signal_cb, base);
 	event_add(sig_int, NULL);
+	
 	// it's recommended by libevent authors to ignore SIGPIPE
 	signal(SIGPIPE, SIG_IGN);
 
@@ -462,7 +474,7 @@ int main(int argc, char **argv)
         { "master", required_argument, NULL, 'm' },
         { "baudrate", required_argument, NULL, 'b' },
         { "out", required_argument, NULL, 'o' },
-        { "out2", required_argument, NULL, 'u' },
+        { "outsecond", required_argument, NULL, 'u' },
         { "in", required_argument, NULL, 'i' },
         { "help", no_argument, NULL, 'h' },
         { NULL, 0, NULL, 0 }
@@ -483,18 +495,23 @@ int main(int argc, char **argv)
         {
             case 'm':
                 port_name = optarg;
+                fprintf(stderr,"changed port_name %s... \n", port_name);
                 break;
             case 'b':
                 baudrate = atoi(optarg);
+                fprintf(stderr,"changed baudrate %d... \n", baudrate);                
                 break;
             case 'o':
                 out_addr = optarg;
+                fprintf(stderr,"changed out_addr %s... \n", out_addr);                                
                 break;
             case 'u':
                 out_2_addr = optarg;
+                fprintf(stderr,"changed out_2_addr %s... \n", out_2_addr);                
                 break;
             case 'i':
                 in_addr = optarg;
+                fprintf(stderr,"changed in_addr %s... \n", in_addr);                
                 break;
             case 'h':
             default:
@@ -502,5 +519,12 @@ int main(int argc, char **argv)
                 return EXIT_SUCCESS;
         }
     }
+    fprintf(stderr,"################################################################ ... \n");  
+    fprintf(stderr,"port_name %s... \n", port_name);  
+    fprintf(stderr,"baudrate %d... \n", baudrate);  
+    fprintf(stderr,"out_addr %s... \n", out_addr);  
+    fprintf(stderr,"out_2_addr %s... \n", out_2_addr);  
+    fprintf(stderr,"in_addr %s... \n", in_addr); 
+    
     return handle_data(port_name, baudrate, out_addr,out_2_addr, in_addr);
 }
